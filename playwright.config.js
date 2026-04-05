@@ -1,10 +1,10 @@
 const { defineConfig, devices } = require('@playwright/test');
 
 /**
- * Playwright Configuration
- * เอาไว้ควบคุมตั้งค่าการรัน Test ทั้งหมดในโปรแกรมเดียว
- * ดูเพิ่มเติม: https://playwright.dev/docs/test-configuration
- */
+ 
+Playwright Configuration,
+เอาไว้ควบคุมตั้งค่าการรัน Test ทั้งหมดในโปรแกรมเดียว,
+ดูเพิ่มเติม: https://playwright.dev/docs/test-configuration*/,
 module.exports = defineConfig({
   // โฟลเดอร์ที่เก็บไฟล์ Test
   testDir: './tests/e2e',
@@ -24,13 +24,13 @@ module.exports = defineConfig({
   // ออกสรุป Report เป็นหน้าเว็บ HTML และเก็บบันทึกข้อมูลลงไฟล์ JSON
   reporter: [
     ['html'],
-    ['json', { outputFile: 'results.json' }]
+    ['json', { outputFile: '/test-results/results.json' }]
   ],
 
   // การตั้งค่าที่จะแชร์ให้ทุกๆ Test เอาไปใช้
   use: {
     // URL หลักของระบบ (หลังจากมีตัวนี้ ในโค้ดเทสสามารถเปลี่ยนไปเขียนแค่ page.goto('/login.php') ได้เลย)
-    baseURL: 'http://localhost:8080',
+    baseURL: 'http://localhost:8080/',
 
     // เก็บภาพ Screen Shot ตอนที่เทสล้มเหลวโดยอัตโนมัติ (เอาไว้แนบ Bug Report ได้เลย)
     screenshot: 'only-on-failure',
