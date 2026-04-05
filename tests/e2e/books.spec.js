@@ -200,4 +200,60 @@ test.describe('Book Management (TC013 - TC020)', () => {
     }
   });
 
+  // ========== Extended E2E Tests (Boundary & Injection) ========== //
+
+  test('[Extended] Negative Book Quantity', async ({ page }) => {
+    const booksPage = new BooksPage(page);
+    await booksPage.goto();
+
+    const book = uniqueBook({ copies: -10 });
+    await booksPage.addBook(book);
+    
+    // ถ้าระบบยอมให้บันทึกหนังสือติดลบ ถือเป็นบั๊กลอจิก
+    const row = booksPage.rowWith(book.isbn);
+    if (await row.isVisible().catch(() => false)) {
+        const rowText = await row.innerText();
+        if(rowText.includes('-10')) {
+          expect(rowText, '[BUG DETECTED] ระบบยอมให้อัปเดตจำนวนหนังสือในคลังเป็นค่าติดลบ').not.toContain('-10');
+        }
+    }
+  });
+
+  test('[Extended] Emoji & Special Char in Author', async ({ page }) => {
+    const booksPage = new BooksPage(page);
+    await booksPage.goto();
+
+    const authorName = "W!ttawat @ 🇹🇭 \u0000";
+    const book = uniqueBook({ author: authorName });
+    await booksPage.addBook(book);
+    
+    // ตรวจสอบว่าหลังจากบันทึกแล้ว ชื่อผู้เขียนกลับมาเหมือนเดิมหรือไม่ หรือกลายเป็น ????? 
+    const row = booksPage.rowWith(book.isbn);
+    if (await row.isVisible().catch(() => false)) {
+       const displayAuthor = await row.locator('td').nth(2).innerText();
+       // ถ้าระบบบันทึก \u0000 แล้วแตก หรือ Emoji หายไป
+       if(!displayAuthor.includes('🇹🇭')) {
+           console.log('ℹ️ [Notice] ฐานข้อมูลอาจไม่ได้ใช้ mb4 charset Emoji จึงหายไป');
+       }
+    }
+  });
+
+  test('[Extended] Trailing Spaces in Search', async ({ page }) => {
+    const booksPage = new BooksPage(page);
+    await booksPage.goto();
+
+    const book = uniqueBook({ title: 'Python 101' });
+    await booksPage.addBook(book);
+    await expect(booksPage.rowWith('Python 101')).toBeVisible({ timeout: 10000 });
+
+    // ค้นหาโดยเคาะเว้นวรรค
+    await booksPage.search('   Python 101   ');
+    
+    // ถ้าระบบไม่ทำ trim ช่องค้นหา มันจะไม่เจอหนังสือ
+    const result = booksPage.rowWith('Python 101');
+    if (!(await result.isVisible())) {
+       expect('Not found', '[BUG DETECTED] ช่องค้นหาไม่ทำการ Trim Whitespace เว้นวรรค ทำให้ค้นหาไม่เจอ').toEqual('Found');
+    }
+  });
+
 });
