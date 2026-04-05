@@ -92,4 +92,42 @@ test.describe('Authentication & Access Control (TC001 - TC005)', () => {
     expect(isRedirectedSafely || isAccessDeniedText).toBeTruthy();
   });
 
+  // ========== Extended E2E Tests (Security & Edge Cases) ========== //
+  
+  test('[Extended] SQL Injection on Login', async ({ page }) => {
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+    // Payload: ' OR 1=1 --
+    await loginPage.login("' OR 1=1 --", "anything");
+    await page.waitForLoadState('networkidle');
+    
+    const currentURL = page.url();
+    if (currentURL.includes('index.php')) {
+      expect(currentURL, '[BUG DETECTED] ระบบยอมรับ SQL Injection ทำให้สามารถเข้าสู่ระบบไปหน้า Dashboard ได้').toContain('login.php');
+      return;
+    }
+    
+    // ระบบที่ปลอดภัยจะต้องปฏิเสธ
+    expect(currentURL).toContain('login');
+  });
+
+  test('[Extended] Login with XSS Payload in Username', async ({ page }) => {
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+    const xssPayload = "<script>alert('XSS')</script>";
+    await loginPage.login(xssPayload, "password");
+    await page.waitForLoadState('networkidle');
+    
+    // เช็คว่ามี Alert ที่เด้งขึ้นมาเพราะ XSS Execute หรือไม่ (Playwright มีการดักจับ on dialog)
+    // ตรงส่วนนี้หากมี alert เด้ง หน้าเพจจะมี dialog event รันอยู่ ซึ่งจะขัดจังหวะ
+    const errorMsg = page.locator('.alert-danger, .error-message, [class*="alert"]');
+    if (await errorMsg.first().isVisible().catch(() => false)) {
+      const text = await errorMsg.first().innerHTML();
+      // ระบบที่ดีควรแปลง < เป็น &lt;
+      if (text.includes('<script>')) {
+         expect(text, '[BUG DETECTED] ระบบเกิดช่องโหว่ Reflected XSS ไม่มีการทำ Sanitization ในส่วน Username').not.toContain('<script>');
+      }
+    }
+  });
+
 });
