@@ -233,4 +233,57 @@ test.describe('Borrowing & Return Process (TC021 - TC037, TC042, TC044)', () => 
     expect(true).toBeTruthy();
   });
 
+  // ========== Extended E2E Tests (Logic & Error Handling) ========== //
+
+  test('[Extended] Borrow with Past Due Date', async ({ page }) => {
+    const borrowingPage = new BorrowingPage(page);
+    await borrowingPage.goto();
+    await borrowingPage.clickNewBorrow();
+
+    // ดักไว้เผื่อระบบไม่ได้ป้องกันการใส่ due date ย้อนหลัง
+    if (await borrowingPage.dueDateInput.isVisible().catch(()=>false)) {
+      await borrowingPage.dueDateInput.fill('2020-01-01');
+      await borrowingPage.submitBorrow();
+
+      // ถ้าระบบยอมให้ยืมด้วยวันที่ในอดีต (Success)
+      const successMsg = page.locator('.alert-success, [class*="success"]');
+      if (await successMsg.isVisible().catch(() => false)) {
+         expect('Success', '[BUG DETECTED] ระบบยอมให้สร้างรายการยืมที่มีกำหนดส่งคืนเป็นอดีตได้!').toEqual('Fail');
+      }
+    }
+  });
+
+  test('[Extended] Submit without Book Selected', async ({ page }) => {
+    const borrowingPage = new BorrowingPage(page);
+    await borrowingPage.goto();
+    await borrowingPage.clickNewBorrow();
+
+    // ลบค่าในช่อง Book หรือไม่เลือกอะไรเลย
+    const bookTag = await borrowingPage.bookSelect.first().evaluate(n => n.tagName.toLowerCase());
+    if (bookTag === 'select') await borrowingPage.bookSelect.first().selectOption({ index: 0 }).catch(()=>{});
+    else await borrowingPage.bookSelect.first().fill('');
+
+    await borrowingPage.submitBorrow();
+
+    // ถ้าระบบรับค่าว่างแล้ว Database พัง หรือหน้าขาว
+    const isErrorOrWhiteScreen = await page.locator('body').innerText().then(t => t.includes('Error') || t.includes('Fatal'));
+    if (isErrorOrWhiteScreen) {
+        expect('Crash', '[BUG DETECTED] การส่งฟอร์มเปล่าทำให้ระบบพัง (Unhandled Exception หรือ DB Error)').toEqual('Handled Validation');
+    }
+  });
+
+  test('[Extended] Double Return', async ({ page }) => {
+    const borrowingPage = new BorrowingPage(page);
+    await borrowingPage.goto();
+
+    const returnedRow = page.locator('table tbody tr').filter({ hasText: /Returned|คืนแล้ว/i }).first();
+    if (await returnedRow.isVisible()) {
+      // ลองค้นหาปุ่มคืนหนังสือในรายการที่คืนไปแล้ว
+      const returnBtn = returnedRow.locator('a, button').filter({ hasText: /Return|คืน/i });
+      if (await returnBtn.count() > 0 && await returnBtn.first().isVisible()) {
+          expect('Btn Exists', '[BUG DETECTED] รายการที่คืนไปแล้วยังมีปุ่ม "Return" ให้กดซ้ำได้อยู่!').toEqual('Btn Hidden');
+      }
+    }
+  });
+
 });
