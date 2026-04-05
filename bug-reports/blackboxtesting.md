@@ -7,7 +7,7 @@
 
 ---
 
-## 📊 1. Executive Summary (สรุปผลการทดสอบ)
+## 1. Executive Summary (สรุปผลการทดสอบ)
 
 จากการดำเนินการทดสอบแบบ Black Box Testing ตามเอกสาร Test Plan และ Test Cases ทั้งหมด 50 กรณี (ครอบคลุมโมดูล Auth, Member, Book, Borrow, Return, Search และ NFR) พบว่าระบบสามารถทำงานตาม Happy Path ได้บางส่วน แต่มีช่องโหว่ทาง Business Logic และกระบวนการ Validate ข้อมูลจำนวนมาก
 
@@ -17,7 +17,7 @@
 
 ---
 
-## 📋 2. Test Execution Matrix (ผลการรัน Test Case แยกตามข้อ)
+## 2. Test Execution Matrix (ผลการรัน Test Case แยกตามข้อ)
 
 | TC ID     | Module      | Test Scenario                         | Status      | Linked Bug / Root Cause                                  |
 | --------- | ----------- | ------------------------------------- | ----------- | -------------------------------------------------------- |
@@ -73,3 +73,13 @@
 | **TC050** | **UI/UX**   | **Interactive Element Overlay**       | ❌ **Fail** | **BUG-013** (Tooltip ซ่อนแอบใต้ตาราง Z-Index พัง)        |
 
 ---
+
+## 🐞 3. Defect & Bug Reports (สร้างจาก Test Case ที่ Failed)
+
+นี่คือรายการ Bug Report ทั้ง 20 ข้อที่ตรวจพบด้วย Black Box Testing (อ้างอิงจากรหัสที่ Fail ด้านบน) จัดเรียงตามความรุนแรง:
+
+### Critical Severity (3 ข้อ)
+
+1. **BUG-001:** ระบบอนุญาตให้สมาชิกกลุ่ม Student ยืมหนังสือเกินโควต้าที่กำหนด _(จาก TC024)_
+2. **BUG-003:** ลบสมาชิกออกจากระบบได้ทันที ทั้งที่สมาชิกมีหนังสือค้างยืม _(จาก TC011)_
+3. **BUG-006:** Member ทั่วไป พิมพ์ URL ลัดเข้าหน้าตั้งค่าของ Admin ระบบได้ _(จาก TC005)_
