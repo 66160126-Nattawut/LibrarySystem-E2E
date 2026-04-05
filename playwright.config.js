@@ -1,4 +1,4 @@
-const { defineConfig, devices } = require('@playwright/test');
+onst { defineConfig, devices } = require('@playwright/test');
 
 /**
  
@@ -24,7 +24,7 @@ module.exports = defineConfig({
   // ออกสรุป Report เป็นหน้าเว็บ HTML และเก็บบันทึกข้อมูลลงไฟล์ JSON
   reporter: [
     ['html'],
-    ['json', { outputFile: '/test-results/results.json' }]
+    ['json', { outputFile: 'test-results/results.json' }]
   ],
 
   // การตั้งค่าที่จะแชร์ให้ทุกๆ Test เอาไปใช้
