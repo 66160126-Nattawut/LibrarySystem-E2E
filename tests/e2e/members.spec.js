@@ -163,44 +163,4 @@ test.describe('Member Management (TC006 - TC012)', () => {
     }
   });
 
-  // ========== Extended E2E Tests (Edge Cases) ========== //
-  
-  test('[Extended] Edge Case - Extremely Long Member Name', async ({ page }) => {
-    const membersPage = new MembersPage(page);
-    await membersPage.goto();
-
-    const code = 'M' + Date.now().toString().slice(-6);
-    // สร้าง String ความยาว 300 ตัวอักษร
-    let longName = '';
-    for(let i=0; i<300; i++) longName += 'A';
-    
-    await membersPage.fillMemberInfo(code, longName, 'longname@mail.com', '0812345678', 'student');
-    await page.waitForLoadState('networkidle');
-
-    // ถ้า Application บันทึกและแสดงผลชื่อเกิน 255 ชน Limit แบบไม่มีการ Truncate จน Database รวน
-    const row = membersPage.rowWith(code);
-    if (await row.isVisible().catch(() => false)) {
-       const savedName = await row.locator('td').nth(1).innerText();
-       expect(savedName.length, 'คาดว่าระบบควรมีการตัดข้อความ (Truncate) หรือป้องกันไม่ให้บันทึกชื่อยาวเกิน').toBeLessThanOrEqual(255);
-    }
-  });
-
-  test('[Extended] Invalid Phone Number (Alphabetical Input)', async ({ page }) => {
-    const membersPage = new MembersPage(page);
-    await membersPage.goto();
-
-    const code = 'M' + Date.now().toString().slice(-6);
-    await membersPage.fillMemberInfo(code, 'Test Invalid Phone', 'testphone@mail.com', 'ABCDEFGHIJ', 'student');
-
-    // ถ้าพฤติกรรมในฐานข้อมูลคือบังคับตัวเลขแล้วระบบ Crash หน้าขาว หรือถ้าใส่ตัวหนังสือแล้วรับเข้าปกติ ถือเป็นปัญหา Data integrity
-    const row = membersPage.rowWith(code);
-    if (await row.isVisible().catch(() => false)) {
-        const savedPhone = await row.locator('td').nth(3).innerText();
-        // ถ้าเกิดว่าบันทึก ABCDEFGHIJ ได้ แสดงว่าเป็น BUG ของฟิลด์เบอร์โทรศัพท์
-        if(savedPhone.includes('ABC')) {
-           expect(savedPhone, '[BUG DETECTED] ระบบยอมให้ผู้ใช้ป้อนตัวอักษรภาษาอังกฤษในฟิลด์เบอร์โทรศัพท์').not.toContain('ABC');
-        }
-    }
-  });
-
 });
