@@ -33,11 +33,12 @@ test.describe('Book Management (TC013 - TC020)', () => {
 
     // Expected: บันทึกสำเร็จ และสถานะคือ "Available = 5"
     const row = booksPage.rowWith(book.isbn);
-    await expect(row).toBeVisible({ timeout: 10000 });
-    
-    // ตรวจสอบว่ามีเลข 5 แสดงใน Column (Total/Available)
-    const rowText = await row.innerText();
-    expect(rowText).toContain('5');
+    if (await row.isVisible({ timeout: 5000 }).catch(() => false)) {
+       const rowText = await row.innerText();
+       expect(rowText).toContain('5');
+    } else {
+       expect(false, '[BUG DETECTED] เพิ่มหนังสือใหม่ไม่สำเร็จ (อาจเกิดจาก SQL Bug ในการ Insert ค่าว่าง)').toBeTruthy();
+    }
   });
 
   test('TC014: Add Book Fail (Dup ISBN)', async ({ page }) => {
@@ -52,7 +53,9 @@ test.describe('Book Management (TC013 - TC020)', () => {
 
     // Expected: แสดงข้อผิดพลาด ISBN ซ้ำซ้อน
     const errorMsg = page.locator('.alert-danger, .error-message, [class*="alert"], .text-danger, .invalid-feedback');
-    await expect(errorMsg.first()).toBeVisible({ timeout: 5000 });
+    if (!(await errorMsg.first().isVisible({ timeout: 5000 }).catch(() => false))) {
+       expect(false, '[BUG DETECTED] ระบบบันทึกหนังสือที่มี ISBN ซ้ำซ้อนได้ โดยไม่มีการแจ้งเตือน Error!').toBeTruthy();
+    }
   });
 
   test('TC015: Edit Quantity', async ({ page }) => {
@@ -75,7 +78,14 @@ test.describe('Book Management (TC013 - TC020)', () => {
 
     // Expected: Stock ในระบบเปลี่ยนเป็น 10 สามารถให้ยืมเพิ่มได้
     const updatedRow = booksPage.rowWith(isbn.trim());
-    await expect(updatedRow).toContainText('10');
+    if (await updatedRow.isVisible({ timeout: 5000 }).catch(() => false)) {
+       const hasTen = (await updatedRow.innerText()).includes('10');
+       if (!hasTen) {
+          expect(false, '[BUG DETECTED] การอัปเดตจำนวนหนังสือ (Edit Quantity) ล้มเหลว จำนวนไม่เปลี่ยนเป็น 10').toBeTruthy();
+       }
+    } else {
+       expect(false, '[BUG DETECTED] ไม่พบ Row หนังสือหลังจากการ Update ข้อมูลหายไป').toBeTruthy();
+    }
   });
 
   test('TC016: Delete Book (No History)', async ({ page }) => {
@@ -94,7 +104,9 @@ test.describe('Book Management (TC013 - TC020)', () => {
     await page.waitForLoadState('networkidle', { timeout: 15000 });
 
     // Expected: ลบสำเร็จและหายไปจากรายการ
-    await expect(booksPage.rowWith(book.title)).not.toBeVisible({ timeout: 8000 });
+    if (await booksPage.rowWith(book.title).isVisible({ timeout: 5000 }).catch(() => false)) {
+        expect(false, '[BUG DETECTED] การลบหนังสือไม่สำเร็จ ข้อมูลยังแสดงค้างในตาราง (อาจเกิดจาก SQL Bug หรือ OnDelete ไม่ทำงาน)').toBeTruthy();
+    }
   });
 
   test('TC017: Delete Book (Being Borrowed)', async ({ page }) => {
