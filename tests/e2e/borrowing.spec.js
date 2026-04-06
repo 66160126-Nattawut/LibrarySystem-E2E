@@ -35,10 +35,14 @@ test.describe('Borrowing & Return Process (TC021 - TC037, TC042, TC044)', () => 
     await borrowingPage.submitBorrow();
 
     // Expected: ยืมผ่าน Due Date + 14 วัน
-    // Validate if it redirects or shows success msg
     const successMsg = page.locator('.alert-success, [class*="success"]');
-    if (await successMsg.count() > 0) {
-      await expect(successMsg.first()).toBeVisible();
+    if (!(await successMsg.first().isVisible({ timeout: 5000 }).catch(() => false))) {
+       const text = await page.locator('body').innerText();
+       if (text.includes('Error') || text.includes('error')) {
+          expect(false, '[BUG DETECTED] พยายามทำรายการยืมปกติแต่ระบบไม่สำเร็จ แสดง Error แจ้งเตือน').toBeTruthy();
+       } else {
+          expect(false, '[BUG DETECTED] ทำรายการยืมแล้วระบบไม่ปรากฏ Success Message ยืนยันใดๆ (Silent Fail หรือไม่มีการ Redirect)').toBeTruthy();
+       }
     }
   });
 
@@ -96,9 +100,15 @@ test.describe('Borrowing & Return Process (TC021 - TC037, TC042, TC044)', () => 
     // To hit the limit, we'd need them to naturally hit it or we mock. We will just check if error msg shows.
     await borrowingPage.submitBorrow();
     
-    const isError = await page.locator('.alert-danger, .error-message').isVisible().catch(()=>false);
     // As long as the test runs and we inspect limit block possibility, it maps to TC024.
-    expect(true).toBeTruthy(); 
+    const isError = await page.locator('.alert-danger, .error-message').isVisible({ timeout: 5000 }).catch(()=>false);
+    if (!isError) {
+        // ถ้ายืมได้สำเร็จ ถือว่าบั๊ก (ให้โควต้าเกิน)
+        const successMsg = page.locator('.alert-success, [class*="success"]');
+        if (await successMsg.isVisible({ timeout: 2000 }).catch(()=>false)) {
+           expect(false, '[BUG DETECTED] นักเรียนสามารถยืมหนังสือเกินโควต้าได้ ระบบไม่มี Limit Block').toBeTruthy();
+        }
+    }
   });
 
   test('TC025: Teacher Max Limit Block', async ({ page }) => {
@@ -116,11 +126,13 @@ test.describe('Borrowing & Return Process (TC021 - TC037, TC042, TC044)', () => 
 
     const memberTag = await borrowingPage.memberSelect.first().evaluate(n => n.tagName.toLowerCase());
     if (memberTag === 'input') {
-      await borrowingPage.memberSelect.first().fill('XYZ999');
+      await borrowingPage.fill('XYZ999');
       await borrowingPage.submitBorrow();
       
       const errorMsg = page.locator('.alert-danger, .error-message, .invalid-feedback');
-      await expect(errorMsg.first()).toBeVisible({ timeout: 5000 });
+      if (!(await errorMsg.first().isVisible({ timeout: 5000 }).catch(() => false))) {
+          expect(false, '[BUG DETECTED] การใส่ Member โค้ดที่ไม่ถูกต้อง แต่ระบบไม่มี Error คืนกลับมาบอกว่าหาไม่เจอ').toBeTruthy();
+      }
     }
   });
 
@@ -134,10 +146,14 @@ test.describe('Borrowing & Return Process (TC021 - TC037, TC042, TC044)', () => 
 
     if (bookTag === 'select') {
       const zeroAvailOption = page.locator('select option').filter({ hasText: /\(0\)|available: 0|0 available/i }).first();
-      const hasZeroOpt = await zeroAvailOption.isVisible().catch(() => false);
+      const hasZeroOpt = await zeroAvailOption.isVisible({ timeout: 3000 }).catch(() => false);
       if (hasZeroOpt) {
         const isDisabled = await zeroAvailOption.evaluate(n => n.disabled);
-        expect(isDisabled).toBeTruthy();
+        if (!isDisabled) {
+            expect(isDisabled, '[BUG DETECTED] หนังสือที่ Stock หายเกลี้ยง (0 available) ไม่ถูก Disable สามารถกดเลือกยืมได้หน้าตาเฉย').toBeTruthy();
+        }
+      } else {
+         console.log('ℹ️ ไม่มีหนังสือที่ Out of stock สำหรับทดสอบตอนนี้ ข้ามไปก่อน');
       }
     }
   });
