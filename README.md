@@ -169,7 +169,7 @@ npx playwright test --reporter=json > test-results/results.json
 # หยุด containers
 docker-compose down
 
-# ลบ volumes (⚠️ ข้อมูลจะหาย)
+# ลบ volumes (ข้อมูลจะหาย)
 docker-compose down -v
 
 # สร้างใหม่
@@ -213,7 +213,7 @@ docker-compose ps
 
 ---
 
-## 📂 เอกสารประกอบโปรเจกต์
+##  เอกสารประกอบโปรเจกต์
 
 | ไฟล์ | คำอธิบาย |
 |------|---------|
@@ -224,6 +224,6 @@ docker-compose ps
 
 ---
 
-## 📄 License
+##  License
 
 > ระบบนี้สร้างขึ้นเพื่อ **การศึกษาเท่านั้น** — ไม่เหมาะสำหรับใช้งานจริง (Production)
