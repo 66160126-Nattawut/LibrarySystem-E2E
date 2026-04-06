@@ -1,10 +1,10 @@
-onst { defineConfig, devices } = require('@playwright/test');
+const { defineConfig, devices } = require('@playwright/test');
 
 /**
  
-Playwright Configuration,
-เอาไว้ควบคุมตั้งค่าการรัน Test ทั้งหมดในโปรแกรมเดียว,
-ดูเพิ่มเติม: https://playwright.dev/docs/test-configuration*/,
+Playwright Configuration
+เอาไว้ควบคุมตั้งค่าการรัน Test ทั้งหมดในโปรแกรมเดียว
+ดูเพิ่มเติม: https://playwright.dev/docs/test-configuration*/
 module.exports = defineConfig({
   // โฟลเดอร์ที่เก็บไฟล์ Test
   testDir: './tests/e2e',

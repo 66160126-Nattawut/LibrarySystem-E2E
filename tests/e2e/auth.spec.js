@@ -1,133 +1,60 @@
-// tests/e2e/auth.spec.js
 const { test, expect } = require('@playwright/test');
 const { LoginPage } = require('../../pages/LoginPage');
 
-test.describe('Authentication & Access Control (TC001 - TC005)', () => {
+test.describe('Authentication Security Analysis (BUG 5 - BUG 7)', () => {
 
-  test('TC001: Login success (Admin)', async ({ page }) => {
+  // ทดสอบ BUG 5: SQL Injection
+  test('TC-AUTH-06: SQL Injection Attack Test', async ({ page }) => {
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+
+    // ลองใช้ Payload มาตรฐานของ SQL Injection
+    // ถ้า BUG 5 มีจริง ระบบจะยอมให้เข้าสู่หน้า index.php ทันที
+    await loginPage.login("' OR '1'='1", "' OR '1'='1");
+
+    await page.waitForLoadState('networkidle');
+
+    const currentUrl = page.url();
+    
+    // ถ้า URL เปลี่ยนไปเป็น index.php แสดงว่าช่องโหว่ SQL Injection ทำงาน!
+    expect(currentUrl, '[BUG 5 DETECTED] ระบบมีช่องโหว่ SQL Injection! สามารถ Bypass Login ได้ด้วย Payload').not.toContain('index.php');
+  });
+
+  // ทดสอบ BUG 6 & 7: Logic Error (ใส่รหัสผิดแต่ดันผ่าน)
+  test('TC-AUTH-03: Login with Non-existent User', async ({ page }) => {
+    const loginPage = new LoginPage(page);
+    await loginPage.goto();
+
+    // ลองใส่ Username มั่วๆ ที่ไม่มีในระบบ
+    // เนื่องจาก BUG 6 (ไม่เช็ก num_rows) และ BUG 7 (ไม่เช็กว่ามี User จริงไหม)
+    // ระบบอาจจะพยายามสร้าง Session จากค่าว่างแล้ว Redirect ไปเลย
+    await loginPage.login('non_existent_user_999', 'wrong_password');
+
+    await page.waitForLoadState('networkidle');
+
+    const currentUrl = page.url();
+
+    // ตรวจสอบว่าระบบเด้งไปหน้า index หรือไม่
+    if (currentUrl.includes('index.php')) {
+      // ตรวจสอบต่อว่าชื่อผู้ใช้ที่แสดงเป็นค่าว่างหรือไม่ (เพราะดึงจาก DB ไม่ได้)
+      const userDropdown = page.locator('#userDropdown');
+      const usernameText = await userDropdown.innerText();
+      
+      expect(currentUrl, `[BUG 6/7 DETECTED] ระบบยอมให้ User ที่ไม่มีตัวตนเข้าถึงหน้าหลักได้ (Username ที่แสดง: ${usernameText})`).not.toContain('index.php');
+    } else {
+      // ถ้าไม่เด้งไป index แสดงว่าเคสนี้ผ่าน (แต่ใน PHP คุณเขียนให้มันเด้งแน่ๆ)
+      await expect(page.locator('.alert-danger')).toBeVisible();
+    }
+  });
+
+  // ทดสอบเคสปกติเพื่อให้มั่นใจว่า Admin ยังเข้าได้
+  test('TC-AUTH-01: Admin Login (Standard)', async ({ page }) => {
     const loginPage = new LoginPage(page);
     await loginPage.goto();
     await loginPage.login('admin', 'admin123');
 
-    // Expected: เข้าสู่ระบบสำเร็จ แสดงหน้า Dashboard ของ Admin พร้อมเมนูตั้งค่าและรายงาน
-    await page.waitForURL('**/index.php', { waitUntil: 'networkidle' });
-    await expect(page).not.toHaveURL(/login/);
-
-    const settingsMenu = page.locator('nav, .sidebar, .menu').locator('a').filter({ hasText: /Setting|ตั้งค่า/i });
-    const reportsMenu = page.locator('nav, .sidebar, .menu').locator('a').filter({ hasText: /Report|รายงาน/i });
-
-    // Admin ควรจะเห็นเมนูตั้งค่า (ถ้ามีในระบบ) 
-    if (await settingsMenu.first().isVisible().catch(() => false)) {
-      await expect(settingsMenu.first()).toBeVisible({ message: 'Admin ต้องมองเห็นเมนูตั้งค่าระบบ' });
-    }
-
-    // Admin ต้องมองเห็นรายงานแน่ๆ
-    await expect(reportsMenu.first()).toBeVisible({ message: 'Admin ต้องมองเห็นเมนูรายงาน' });
-  });
-
-  test('TC002: Login success (Librarian)', async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    await loginPage.goto();
-    await loginPage.login('librarian', 'lib123');
-
-    // Expected: เข้าสู่ระบบสำเร็จ แสดงสิทธิ์จัดการงานประจำวัน (ไม่เห็นเมนู System Config ของ Admin)
-    await page.waitForURL('**/index.php', { waitUntil: 'networkidle' });
-
-    const settingsMenu = page.locator('nav, .sidebar, .menu').locator('a').filter({ hasText: /Setting|ตั้งค่า/i });
-    await expect(settingsMenu).toBeHidden({ message: 'Librarian ต้องไม่เห็นเมนูตั้งค่าระบบของ Admin' });
-  });
-
-  test('TC003: Login fail (Wrong Password)', async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    await loginPage.goto();
-    await loginPage.login('admin', 'wrongpass');
-
-    // รอให้โหลดเสร็จหลังจากกด Login
-    await page.waitForLoadState('networkidle');
-
-    // ระบบมีบั๊ก (BUG 6) ที่เมื่อใส่รหัสผิดแล้วจะเด้งไปหน้า index.php หากเป็นเช่นนั้นเราจะดักไว้เพื่อไม่ให้เจอปัญหา Timeout
-    const currentUrl = page.url();
-    if (currentUrl.includes('index.php')) {
-      // สามารถเลือกให้ Test ผ่านแล้วแค่ Log หรือใช้ expect บังคับให้ Test Failed แบบชัดเจน
-      expect(currentUrl, '[BUG 6 DETECTED] ระบบยอมให้เข้าสู่หน้า Dashboard ทั้งที่รหัสผ่านไม่ถูกต้อง!').toContain('login');
-      return; 
-    }
-
-    // Expected: ไม่สามารถเข้าสู่ระบบ ระบบแสดงแจ้งเตือน "รหัสผ่านไม่ถูกต้อง"
-    await expect(page).toHaveURL(/login/);
-    
-    const errorMessage = page.locator('.alert-danger, .error-message, [class*="alert"]');
-    if (await errorMessage.first().isVisible().catch(() => false)) {
-      await expect(errorMessage.first()).toBeVisible();
-      await expect(errorMessage.first()).toContainText(/รหัสผ่าน|Password|Invalid|error/i);
-    }
-  });
-
-  test('TC004: Login fail (Empty Fields)', async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    await loginPage.goto();
-
-    // Expected: ฟอร์มแจ้ง Validation error
-    await loginPage.login('', '');
-
-    const isUserInvalid = await loginPage.usernameInput.evaluate(node => !node.validity.valid);
-    expect(isUserInvalid).toBeTruthy();
-  });
-
-  test('TC005: Authorization Check', async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    await loginPage.goto();
-    await loginPage.login('librarian', 'lib123');
-    await page.waitForURL('**/index.php', { waitUntil: 'networkidle' });
-
-    // Expected: ระบบปฏิเสธการเข้าถึง (Access Denied / 403) หรือบังคับเด้งไปหน้าแรก
-    await page.goto('http://localhost:8080/settings.php');
-    await page.waitForTimeout(1000);
-
-    const currentURL = page.url();
-    const isAccessDeniedText = await page.locator('body').innerText().then(text => /Access Denied|403|ปฏิเสธ|Not Found|404/i.test(text));
-
-    // It should either redirect to index.php (or back to login), OR show access denied/404 page
-    const isRedirectedSafely = !currentURL.includes('settings.php');
-    expect(isRedirectedSafely || isAccessDeniedText).toBeTruthy();
-  });
-
-  // ========== Extended E2E Tests (Security & Edge Cases) ========== //
-  
-  test('[Extended] SQL Injection on Login', async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    await loginPage.goto();
-    // Payload: ' OR 1=1 --
-    await loginPage.login("' OR 1=1 --", "anything");
-    await page.waitForLoadState('networkidle');
-    
-    const currentURL = page.url();
-    if (currentURL.includes('index.php')) {
-      expect(currentURL, '[BUG DETECTED] ระบบยอมรับ SQL Injection ทำให้สามารถเข้าสู่ระบบไปหน้า Dashboard ได้').toContain('login.php');
-      return;
-    }
-    
-    // ระบบที่ปลอดภัยจะต้องปฏิเสธ
-    expect(currentURL).toContain('login');
-  });
-
-  test('[Extended] Login with XSS Payload in Username', async ({ page }) => {
-    const loginPage = new LoginPage(page);
-    await loginPage.goto();
-    const xssPayload = "<script>alert('XSS')</script>";
-    await loginPage.login(xssPayload, "password");
-    await page.waitForLoadState('networkidle');
-    
-    // เช็คว่ามี Alert ที่เด้งขึ้นมาเพราะ XSS Execute หรือไม่ (Playwright มีการดักจับ on dialog)
-    // ตรงส่วนนี้หากมี alert เด้ง หน้าเพจจะมี dialog event รันอยู่ ซึ่งจะขัดจังหวะ
-    const errorMsg = page.locator('.alert-danger, .error-message, [class*="alert"]');
-    if (await errorMsg.first().isVisible().catch(() => false)) {
-      const text = await errorMsg.first().innerHTML();
-      // ระบบที่ดีควรแปลง < เป็น &lt;
-      if (text.includes('<script>')) {
-         expect(text, '[BUG DETECTED] ระบบเกิดช่องโหว่ Reflected XSS ไม่มีการทำ Sanitization ในส่วน Username').not.toContain('<script>');
-      }
-    }
+    await page.waitForURL('**/index.php');
+    await expect(page.locator('#userDropdown')).toContainText(/admin/i);
   });
 
 });

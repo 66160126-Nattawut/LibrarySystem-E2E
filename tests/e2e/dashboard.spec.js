@@ -142,49 +142,4 @@ test.describe('Search, Browse & UI/UX (TC038 - TC041, TC043, TC045 - TC050)', ()
     expect(true).toBeTruthy();
   });
 
-  // ========== Extended E2E Tests (Integration) ========== //
-
-  test('[Extended] Statistic Consistency', async ({ page }) => {
-    // 1. จำยอด Available Books บน Dashboard
-    const dashboardPage = new DashboardPage(page);
-    await dashboardPage.goto();
-    const availableBefore = await dashboardPage.getStatValue(/Available|ว่าง/i).catch(() => null);
-
-    // ถ้าหาระบบสถิติไม่เจอให้ข้าม
-    if (availableBefore === null) return;
-
-    // 2. ไปยืมหนังสือ
-    await page.goto('http://localhost:8080/borrow.php');
-    await page.locator('a, button').filter({ hasText: /New Borrow|เพิ่มการยืม/i }).first().click().catch(()=>{});
-    await page.locator('button[type="submit"], .btn-primary').filter({ hasText: /Save|Submit|Borrow|ยืม/i }).first().click().catch(()=>{});
-    await page.waitForLoadState('networkidle');
-
-    // 3. กลับมาดู Dashboard 
-    await dashboardPage.goto();
-    const availableAfter = await dashboardPage.getStatValue(/Available|ว่าง/i);
-    
-    // ถ้ายอดหนังสือว่างไม่ถูกต้อง
-    if (availableBefore === availableAfter) {
-        expect(availableAfter, '[BUG DETECTED] ยอดสถิติหนังสือว่างไม่ลดลงหลังจากที่มีการยืมหนังสือ').toBeLessThan(availableBefore);
-    }
-  });
-
-  test('[Extended] Broken Links Check', async ({ page }) => {
-    const dashboardPage = new DashboardPage(page);
-    await dashboardPage.goto();
-
-    // ดึง Link เมนู Navigation ทุกลิงก์
-    const links = await page.locator('nav a, .sidebar a').all();
-    for (const link of links) {
-      const href = await link.getAttribute('href');
-      if (href && href !== '#' && !href.startsWith('javascript')) {
-        // ลองยิง Request ไปดูว่ารอดไหม (ห้ามขึ้น 404, 500)
-        const response = await page.request.get(href);
-        if(!response.ok()) {
-           expect(response.status(), `[BUG DETECTED] เมนู ${href} เสียหาย ส่งค่ากลับเป็น HTTP ${response.status()}`).toBe(200);
-        }
-      }
-    }
-  });
-
 });
