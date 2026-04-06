@@ -1,4 +1,4 @@
-#  Library Management System — Educational Testing Platform
+#  Library Management System 
 
 > ระบบจัดการห้องสมุดสำหรับการเรียนการสอนวิชา **Software Testing and Evaluation**
 > พร้อม Automated Testing ด้วย Playwright
