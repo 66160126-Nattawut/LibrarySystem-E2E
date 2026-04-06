@@ -40,7 +40,9 @@ test.describe('Member Management (TC006 - TC012)', () => {
 
     // Expected: ระบบแสดง Error "รหัสสมาชิกนี้มีในระบบแล้ว" บันทึกไม่สำเร็จ
     const errorMsg = page.locator('.alert-danger, .error-message, [class*="alert"], .text-danger, .invalid-feedback');
-    await expect(errorMsg.first()).toBeVisible({ timeout: 5000 });
+    if (!(await errorMsg.first().isVisible({ timeout: 5000 }).catch(() => false))) {
+        expect(false, '[BUG DETECTED] ระบบยอมให้เพิ่มรหัสสมาชิกซ้ำกัน โดยไม่มี Error เตือนใดๆ!').toBeTruthy();
+    }
   });
 
   test('TC008: Add Member Fail (Missing Req)', async ({ page }) => {
@@ -77,8 +79,11 @@ test.describe('Member Management (TC006 - TC012)', () => {
     await updateBtn.first().click();
     await page.waitForLoadState('networkidle', { timeout: 15000 });
 
-    // Expected: ข้อมูลถูกอัปเดต
-    await expect(membersPage.rowWith(newName)).toBeVisible({ timeout: 10000 });
+    // Expected: ข้อมูลบันทึกสำเร็จและแสดงในตารางว่าคือ Poom
+    const updatedRow = membersPage.rowWith(newName);
+    if (!(await updatedRow.isVisible({ timeout: 5000 }).catch(() => false))) {
+        expect(false, '[BUG DETECTED] การ Edit ข้อมูลไม่ไปบันทึกลงฐานข้อมูล แก้ไขแล้วยังเป็นค่าเดิม').toBeTruthy();
+    }
   });
 
   test('TC010: Delete Member (Safe)', async ({ page }) => {
@@ -97,8 +102,10 @@ test.describe('Member Management (TC006 - TC012)', () => {
     await deleteBtn.first().click();
     await page.waitForLoadState('networkidle', { timeout: 15000 });
 
-    // Expected: สมาชิกถูกลบออกจากระบบ
-    await expect(membersPage.rowWith(name)).not.toBeVisible({ timeout: 8000 });
+    // Expected: หายไปจากระบบ
+    if (await membersPage.rowWith(code).isVisible({ timeout: 5000 }).catch(() => false)) {
+        expect(false, '[BUG DETECTED] การลบสมาชิกแบบปกติทำงานล้มเหลว ลบแล้วโชว์ข้อความว่าลบแต่ไม่หายจริง').toBeTruthy();
+    }
   });
 
   test('TC011: Delete Member (Has Active Borrow)', async ({ page }) => {
